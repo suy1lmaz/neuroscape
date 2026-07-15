@@ -799,6 +799,264 @@ body {
   color: var(--text-muted);
 }
 
+/* ============================================
+   Neurological Disorders section
+   ============================================ */
+.safety-banner {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background: rgba(244, 114, 182, 0.08);
+  border: 1px solid rgba(244, 114, 182, 0.25);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.safety-banner .banner-icon {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.safety-banner p {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.safety-banner strong {
+  color: var(--text);
+}
+
+.subsection-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 3vw, 1.75rem);
+  font-weight: 600;
+  margin: 3.5rem 0 1rem;
+}
+
+.subsection-title .st-tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.65rem;
+  border-radius: 4px;
+}
+
+.st-tag.chronic {
+  color: var(--dendrite);
+  background: rgba(167, 139, 250, 0.12);
+  border: 1px solid rgba(167, 139, 250, 0.28);
+}
+
+.st-tag.temporary {
+  color: var(--glial);
+  background: rgba(20, 184, 166, 0.12);
+  border: 1px solid rgba(20, 184, 166, 0.28);
+}
+
+.subsection-lead {
+  color: var(--text-muted);
+  max-width: 760px;
+  margin-bottom: 2rem;
+  font-size: 1.02rem;
+}
+
+/* Chronic disorder cards */
+.disorder-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.disorder-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--dendrite);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  transition: border-color 0.3s, transform 0.3s var(--ease-out);
+}
+
+.disorder-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+.disorder-card h4 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.disorder-cat {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dendrite);
+  display: block;
+  margin-bottom: 0.9rem;
+}
+
+.disorder-card p {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.disorder-manage {
+  margin-top: 1rem;
+  font-size: 0.8rem !important;
+  font-family: var(--font-mono);
+  color: var(--text-dim) !important;
+}
+
+/* Temporary / reversible therapy cards */
+.therapy-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+.therapy-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--glial);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  transition: border-color 0.3s, transform 0.3s var(--ease-out);
+}
+
+.therapy-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(20, 184, 166, 0.35);
+}
+
+.therapy-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.therapy-card h4 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+}
+
+.recover-badge {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--glial);
+  background: rgba(20, 184, 166, 0.1);
+  border: 1px solid rgba(20, 184, 166, 0.25);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.therapy-card > p {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  margin-bottom: 1.25rem;
+}
+
+.therapy-details {
+  border-top: 1px solid var(--border);
+}
+
+.therapy-details summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--glial);
+  transition: color 0.2s;
+}
+
+.therapy-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.therapy-details summary:hover,
+.therapy-details summary:focus-visible {
+  color: var(--impulse);
+  outline: none;
+}
+
+.therapy-details summary .chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgba(20, 184, 166, 0.4);
+  border-radius: 4px;
+  font-size: 1rem;
+  line-height: 1;
+  transition: transform 0.3s var(--ease-out);
+}
+
+.therapy-details[open] summary .chevron {
+  transform: rotate(45deg);
+}
+
+.therapy-steps {
+  list-style: none;
+  margin-top: 1rem;
+  padding: 0;
+}
+
+.therapy-steps li {
+  position: relative;
+  padding-left: 1.6rem;
+  margin-bottom: 0.7rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.therapy-steps li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--glial);
+  font-weight: 600;
+}
+
+.therapy-timeline {
+  margin-top: 1rem;
+  padding: 0.7rem 1rem;
+  background: rgba(20, 184, 166, 0.07);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.therapy-timeline strong {
+  color: var(--glial);
+}
+
 /* Footer */
 .site-footer {
   position: relative;
@@ -871,7 +1129,9 @@ body {
   }
 
   .glial-grid,
-  .deep-topics {
+  .deep-topics,
+  .disorder-grid,
+  .therapy-grid {
     grid-template-columns: 1fr;
   }
 }

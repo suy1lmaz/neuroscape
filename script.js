@@ -107,7 +107,7 @@ navLinks.querySelectorAll('a').forEach(link => {
 
 // ── Scroll reveal ──
 const revealElements = document.querySelectorAll(
-  '.section-header, .info-card, .type-card, .flow-step, .anatomy-card, .glial-card, .deep-card, .fact-card, .prose'
+  '.section-header, .info-card, .type-card, .flow-step, .anatomy-card, .glial-card, .deep-card, .fact-card, .prose, .safety-banner, .disorder-card, .therapy-card'
 );
 
 revealElements.forEach(el => el.classList.add('reveal'));
