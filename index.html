@@ -26,6 +26,7 @@
       <li><a href="#glial">Glial Cells</a></li>
       <li><a href="#disorders">Disorders</a></li>
       <li><a href="#deeper">Deeper Dive</a></li>
+      <li><a href="explore.html" class="nav-sim">Simulation ↗</a></li>
     </ul>
   </nav>
 
@@ -73,6 +74,45 @@
   </header>
 
   <main>
+    <!-- Featured interactive simulation -->
+    <section class="sim-cta" aria-labelledby="sim-cta-title">
+      <div class="sim-cta-inner">
+        <div class="sim-cta-copy">
+          <span class="sim-cta-tag">Interactive · New</span>
+          <h2 id="sim-cta-title">The Descent — an infinite-zoom brain</h2>
+          <p>
+            Start at the whole brain and dive, click by click, all the way down to a single
+            neurotransmitter binding a receptor. Four scales, one continuous journey — hover to
+            explore, and watch the chemistry light up.
+          </p>
+          <a href="explore.html" class="sim-cta-btn">Launch the simulation →</a>
+          <ul class="sim-cta-scales">
+            <li><span>15 cm</span>Brain</li>
+            <li><span>1 mm</span>Network</li>
+            <li><span>20 nm</span>Synapse</li>
+            <li><span>1 nm</span>Molecule</li>
+          </ul>
+        </div>
+        <a href="explore.html" class="sim-cta-visual" aria-label="Launch the brain simulation">
+          <svg viewBox="0 0 240 240" aria-hidden="true">
+            <defs>
+              <radialGradient id="simCore" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#ddd6fe"/>
+                <stop offset="100%" stop-color="#7c3aed"/>
+              </radialGradient>
+            </defs>
+            <circle class="sim-ring sim-ring-1" cx="120" cy="120" r="104" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4 8"/>
+            <circle class="sim-ring sim-ring-2" cx="120" cy="120" r="78" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 7"/>
+            <circle class="sim-ring sim-ring-3" cx="120" cy="120" r="52" fill="none" stroke="#f472b6" stroke-width="1.5" stroke-dasharray="2 6"/>
+            <circle cx="120" cy="120" r="26" fill="url(#simCore)"/>
+            <circle class="sim-core-pulse" cx="120" cy="120" r="26" fill="none" stroke="#22d3ee" stroke-width="2"/>
+            <circle cx="120" cy="120" r="9" fill="#4c1d95" opacity="0.75"/>
+          </svg>
+          <span class="sim-cta-visual-label">▶ Dive in</span>
+        </a>
+      </div>
+    </section>
+
     <!-- Section 1: What is Neurology -->
     <section class="section" id="neurology">
       <div class="section-header">
@@ -623,7 +663,7 @@
       <div class="section-header">
         <span class="section-tag">Chapter V</span>
         <h2>Neurological Disorders</h2>
-        <p class="section-sub">From lifelong conditions to temporary setbacks that heal — and how the reversible ones are treated</p>
+        <p class="section-sub">From lifelong conditions to temporary setbacks that heal, and how the reversible ones are treated</p>
       </div>
 
       <div class="safety-banner" role="note">

@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Neuroscape — The Descent · Infinite Zoom Simulation</title>
+<meta name="description" content="Dive from the whole human brain down to a single neurotransmitter binding a receptor — an interactive infinite-zoom journey through the nervous system." />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          void: '#050713',
+          deep: '#0a0e24',
+          surface: '#111634',
+          synapse: '#38bdf8',
+          dendrite: '#a78bfa',
+          soma: '#7c3aed',
+          myelin: '#fde68a',
+          glial: '#14b8a6',
+          impulse: '#22d3ee',
+          accent: '#f472b6',
+        },
+        fontFamily: {
+          display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+          body: ['"DM Sans"', 'system-ui', 'sans-serif'],
+          mono: ['"IBM Plex Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+
+<style>
+  :root { color-scheme: dark; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: radial-gradient(1200px 800px at 50% 30%, #0c1130 0%, #060814 55%, #04050d 100%);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: #e2e8f0;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  #stage { touch-action: none; display: block; }
+
+  .glass {
+    background: rgba(12, 17, 42, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+  }
+  .neon-text { text-shadow: 0 0 18px rgba(56, 189, 248, 0.55); }
+
+  /* Breadcrumb rail */
+  .rail-line { background: linear-gradient(to bottom, rgba(56,189,248,0.05), rgba(167,139,250,0.35), rgba(56,189,248,0.05)); }
+
+  .crumb-dot { transition: all .3s cubic-bezier(.16,1,.3,1); }
+  .crumb.active .crumb-dot { transform: scale(1.35); box-shadow: 0 0 0 4px rgba(56,189,248,.15), 0 0 22px rgba(56,189,248,.8); }
+  .crumb.active .crumb-label { color: #e2e8f0; }
+  .crumb.done .crumb-dot { background: #a78bfa; }
+  .crumb:not(.active):hover .crumb-label { color: #cbd5e1; }
+
+  .btn-descend {
+    position: relative;
+    background: linear-gradient(120deg, rgba(56,189,248,.16), rgba(167,139,250,.16));
+    border: 1px solid rgba(56,189,248,.5);
+    box-shadow: 0 0 0 0 rgba(56,189,248,.35);
+    animation: descendPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes descendPulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(56,189,248,.35); }
+    50%     { box-shadow: 0 0 24px 3px rgba(56,189,248,.28); }
+  }
+  .btn-descend .arrow { animation: bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(3px);} }
+
+  .chem-btn { transition: all .2s ease; }
+  .chem-btn[aria-pressed="true"] { transform: translateY(-1px); }
+
+  .fade-swap { animation: fadeSwap .5s ease; }
+  @keyframes fadeSwap { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+
+  .tip {
+    position: fixed; z-index: 60; pointer-events: none;
+    transform: translate(-50%, calc(-100% - 14px));
+    opacity: 0; transition: opacity .12s ease;
+    max-width: 240px;
+  }
+  .tip.show { opacity: 1; }
+  .tip::after {
+    content:''; position:absolute; left:50%; top:100%; transform:translateX(-50%);
+    border:7px solid transparent; border-top-color: rgba(148,163,184,.3);
+  }
+
+  .scan-active #scanBtn { background: rgba(34,211,238,.18); border-color: rgba(34,211,238,.6); color:#67e8f9; }
+
+  /* thin scrollbar for HUD */
+  .thin::-webkit-scrollbar { width: 6px; }
+  .thin::-webkit-scrollbar-thumb { background: rgba(148,163,184,.25); border-radius: 99px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-descend, .btn-descend .arrow, .fade-swap { animation: none !important; }
+  }
+</style>
+</head>
+
+<body class="font-body">
+
+  <!-- ===== Canvas ===== -->
+  <canvas id="stage"></canvas>
+
+  <!-- ===== Vignette + grain overlay ===== -->
+  <div class="pointer-events-none fixed inset-0 z-10" style="background:radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(2,3,10,.85) 100%)"></div>
+
+  <!-- ===== Top bar ===== -->
+  <header class="fixed top-0 left-0 right-0 z-40 flex items-center justify-between gap-3 px-4 sm:px-6 py-3">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="index.html" class="glass rounded-xl px-3 py-2 flex items-center gap-2 text-sm text-slate-300 hover:text-synapse transition shrink-0" title="Back to Neuroscape">
+        <span data-lucide="chevron-left" class="w-4 h-4"></span>
+        <span class="hidden sm:inline font-mono tracking-wide text-xs uppercase">Neuroscape</span>
+      </a>
+      <div class="min-w-0">
+        <h1 class="font-display text-lg sm:text-2xl leading-none neon-text truncate">The Descent</h1>
+        <p class="font-mono text-[10px] sm:text-xs text-slate-400 tracking-[0.2em] uppercase">Infinite-Zoom Brain Simulation</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button id="scanBtn" class="glass rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-300 hover:text-impulse transition" title="Toggle scan mode (S)">
+        <span data-lucide="scan-line" class="w-4 h-4"></span>
+        <span class="hidden sm:inline">Scan</span>
+      </button>
+      <button id="upBtn" class="glass rounded-xl px-3 py-2 flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-slate-300 hover:text-synapse transition disabled:opacity-30 disabled:cursor-not-allowed" title="Zoom out (Esc / Backspace)">
+        <span data-lucide="corner-left-up" class="w-4 h-4"></span>
+        <span class="hidden sm:inline">Out</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== Breadcrumb scale rail (desktop: left vertical) ===== -->
+  <nav id="railDesktop" class="hidden md:flex fixed left-5 top-1/2 -translate-y-1/2 z-40 flex-col items-start gap-0">
+    <!-- filled by JS -->
+  </nav>
+
+  <!-- ===== Breadcrumb (mobile: top horizontal strip) ===== -->
+  <nav id="railMobile" class="md:hidden fixed left-0 right-0 top-[64px] z-30 flex justify-center">
+    <div class="glass rounded-full px-2 py-1.5 flex items-center gap-1"></div>
+  </nav>
+
+  <!-- ===== HUD panel ===== -->
+  <aside id="hud" class="glass fixed z-40 flex flex-col
+    md:top-24 md:bottom-6 md:right-5 md:left-auto md:w-[360px] md:rounded-2xl
+    left-0 right-0 bottom-0 rounded-t-2xl md:rounded-t-2xl max-h-[52vh] md:max-h-none">
+    <!-- drag handle (mobile) -->
+    <div class="md:hidden flex justify-center pt-2 pb-1 shrink-0">
+      <span class="w-10 h-1.5 rounded-full bg-slate-600"></span>
+    </div>
+
+    <div class="px-5 pt-3 md:pt-5 shrink-0">
+      <div class="flex items-center justify-between gap-3">
+        <span id="hudLevelTag" class="font-mono text-[10px] tracking-[0.25em] uppercase text-synapse">Level 1 / 4</span>
+        <span id="hudScale" class="font-mono text-xs text-slate-400">≈ 15 cm</span>
+      </div>
+      <h2 id="hudTitle" class="font-display text-2xl sm:text-3xl mt-1 leading-tight">The Human Brain</h2>
+    </div>
+
+    <div id="hudBody" class="px-5 py-3 overflow-y-auto thin grow">
+      <!-- dynamic content -->
+    </div>
+
+    <div class="px-5 pb-5 pt-2 shrink-0 border-t border-white/5">
+      <div id="chemDock" class="hidden mb-3">
+        <p class="font-mono text-[10px] uppercase tracking-widest text-slate-400 mb-2">Load a neurotransmitter</p>
+        <div id="chemBtns" class="grid grid-cols-3 gap-2"></div>
+      </div>
+      <button id="descendBtn" class="btn-descend w-full rounded-xl py-3 flex items-center justify-center gap-2 font-mono text-xs uppercase tracking-widest text-white">
+        <span id="descendLabel">Dive deeper</span>
+        <span class="arrow" data-lucide="chevrons-down"></span>
+      </button>
+      <p id="deepestNote" class="hidden text-center font-mono text-[11px] text-glial tracking-wide">◆ Quantum floor reached — the base of biology ◆</p>
+    </div>
+  </aside>
+
+  <!-- ===== Hover tooltip ===== -->
+  <div id="tip" class="tip glass rounded-lg px-3 py-2">
+    <p id="tipTitle" class="font-mono text-[11px] uppercase tracking-wider text-synapse"></p>
+    <p id="tipText" class="text-xs text-slate-300 leading-snug mt-0.5"></p>
+  </div>
+
+  <!-- ===== First-run hint ===== -->
+  <div id="hint" class="fixed z-50 left-1/2 -translate-x-1/2 bottom-[56vh] md:bottom-8 md:left-[calc(50%-190px)] glass rounded-full px-4 py-2 flex items-center gap-2 text-xs text-slate-300 font-mono transition-opacity duration-500">
+    <span data-lucide="mouse-pointer-click" class="w-4 h-4 text-impulse"></span>
+    <span>Click a glowing region to begin the descent</span>
+  </div>
+
+<script>
+/* ============================================================
+   NEUROSCAPE — THE DESCENT
+   Infinite-zoom neuroanatomy → neurochemistry simulation.
+   Single-file. Canvas render + HTML HUD overlay.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  const STAGE_W = 1200, STAGE_H = 800;
+  const CENTER = { x: STAGE_W / 2, y: STAGE_H / 2 };
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let cw = 0, ch = 0, dpr = 1;
+  let fit = { s: 1, ox: 0, oy: 0 };
+
+  function resize() {
+    cw = window.innerWidth;
+    ch = window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(cw * dpr);
+    canvas.height = Math.floor(ch * dpr);
+    canvas.style.width = cw + 'px';
+    canvas.style.height = ch + 'px';
+    // Fit the stage into the free zone, leaving room for the rail (left),
+    // the HUD (right on desktop / bottom drawer on mobile) and the top bar.
+    const desktop = cw >= 768;
+    const leftInset = desktop ? 108 : 8;
+    const rightInset = desktop ? 388 : 8;
+    const topInset = desktop ? 96 : 112;
+    const bottomInset = desktop ? 28 : Math.round(ch * 0.46);
+    const availW = Math.max(120, cw - leftInset - rightInset);
+    const availH = Math.max(120, ch - topInset - bottomInset);
+    const s = Math.min(availW / STAGE_W, availH / STAGE_H);
+    fit = {
+      s,
+      ox: leftInset + (availW - STAGE_W * s) / 2,
+      oy: topInset + (availH - STAGE_H * s) / 2,
+    };
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // pointer(css px) -> logical stage coords
+  function toLogical(px, py) {
+    return { x: (px - fit.ox) / fit.s, y: (py - fit.oy) / fit.s };
+  }
+
+  // ---------- math helpers ----------
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const easeInOut = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+  const dist2 = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; };
+  function pointInPoly(x, y, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function centroid(pts) {
+    let x = 0, y = 0; pts.forEach(p => { x += p[0]; y += p[1]; }); return { x: x / pts.length, y: y / pts.length };
+  }
+
+  // ---------- global state ----------
+  const state = {
+    level: 1,
+    scan: false,
+    hoverKey: null,
+    focusInfo: null,      // overrides HUD default text when a sub-part is selected
+    chem: 'dopamine',
+    transition: null,     // {from,to,dir,start,dur,focus}
+    interacted: false,
+  };
+  let now = 0;
+
+  /* ============================================================
+     BACKGROUND — drifting particle depth field (all levels)
+     ============================================================ */
+  const bgDots = Array.from({ length: 70 }, () => ({
+    x: Math.random() * STAGE_W, y: Math.random() * STAGE_H,
+    r: Math.random() * 1.8 + 0.4, s: Math.random() * 0.15 + 0.03,
+    a: Math.random() * 0.5 + 0.1, hue: Math.random() < 0.5 ? '56,189,248' : '167,139,250'
+  }));
+  function drawBackground() {
+    for (const d of bgDots) {
+      if (!reduceMotion) { d.y -= d.s; if (d.y < -4) d.y = STAGE_H + 4; }
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${d.hue},${d.a})`;
+      ctx.fill();
+    }
+  }
+
+  // ---------- small draw utils ----------
+  function glowCircle(x, y, r, color, blur) {
+    ctx.save();
+    ctx.shadowColor = color; ctx.shadowBlur = blur || 18;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+    ctx.restore();
+  }
+  function ring(x, y, r, color, lw, phase) {
+    ctx.save();
+    ctx.strokeStyle = color; ctx.lineWidth = lw;
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+  function label(x, y, text, color, size, align) {
+    ctx.save();
+    ctx.font = `500 ${size || 13}px 'IBM Plex Mono', monospace`;
+    ctx.fillStyle = color || 'rgba(226,232,240,.9)';
+    ctx.textAlign = align || 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+  // pulsing scan halo
+  function scanHalo(x, y, r, color) {
+    const p = (now / 1000) % 1.2 / 1.2;
+    ctx.save();
+    ctx.globalAlpha = (1 - p) * 0.9;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, r + p * 26, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 0.5;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ============================================================
+     LEVEL 1 — MACRO BRAIN
+     ============================================================ */
+  const brainRegions = {
+    frontal: {
+      name: 'Frontal Lobe', color: '167,139,250',
+      poly: [[255,395],[250,300],[300,225],[430,190],[472,205],[462,320],[456,440],[360,448],[300,425]],
+      tip: 'The CEO. Planning, decisions, personality & voluntary movement.',
+      fact: 'Your frontal lobe keeps maturing until ~age 25 — the last part of the brain to fully wire up.',
+    },
+    parietal: {
+      name: 'Parietal Lobe', color: '56,189,248',
+      poly: [[472,205],[610,185],[702,205],[700,300],[660,362],[560,362],[470,332]],
+      tip: 'The Navigator. Touch, temperature & knowing where your body is in space.',
+      fact: 'It builds your "body map" — the reason you can touch your nose with your eyes shut.',
+    },
+    occipital: {
+      name: 'Occipital Lobe', color: '251,191,36',
+      poly: [[702,205],[762,202],[862,255],[906,342],[880,416],[782,426],[706,410],[700,300]],
+      tip: 'The Screening Room. Vision — it turns raw light into the images you see.',
+      fact: 'Vision hijacks ~30% of your cortex. You literally see with the back of your head.',
+    },
+    temporal: {
+      name: 'Temporal Lobe', color: '244,114,182',
+      poly: [[456,440],[560,362],[660,362],[706,410],[700,442],[620,472],[520,486],[430,470]],
+      tip: 'The Librarian. Hearing, language & forming new memories.',
+      fact: 'Home of the hippocampus — where short-term moments get filed into long-term memory.',
+    },
+    cerebellum: {
+      name: 'Cerebellum', color: '20,184,166',
+      poly: [[740,432],[820,430],[900,470],[912,548],[848,596],[760,588],[726,520],[730,468]],
+      tip: 'The Autopilot. Balance, coordination, timing & smooth movement.',
+      fact: 'Just 10% of brain volume — but it holds over 50% of all your neurons.',
+    },
+    brainstem: {
+      name: 'Brainstem', color: '129,140,248',
+      poly: [[706,470],[742,468],[748,556],[736,650],[706,660],[688,584],[690,510]],
+      tip: 'Life Support. Breathing, heartbeat & sleep — the stuff you never think about.',
+      fact: 'It runs the systems that keep you alive even while you sleep or under anaesthesia.',
+    },
+  };
+  const regionOrder = ['frontal','parietal','occipital','temporal','cerebellum','brainstem'];
+  regionOrder.forEach(k => { brainRegions[k].c = centroid(brainRegions[k].poly); });
+
+  function drawGyri(poly, color) {
+    // wavy sulci texture, clipped to region
+    ctx.save();
+    ctx.beginPath();
+    poly.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.closePath(); ctx.clip();
+    ctx.strokeStyle = `rgba(${color},0.28)`; ctx.lineWidth = 2;
+    const b = poly.reduce((a, p) => ({ minx: Math.min(a.minx, p[0]), maxx: Math.max(a.maxx, p[0]), miny: Math.min(a.miny, p[1]), maxy: Math.max(a.maxy, p[1]) }), { minx: 1e9, maxx: -1e9, miny: 1e9, maxy: -1e9 });
+    for (let y = b.miny + 8; y < b.maxy; y += 15) {
+      ctx.beginPath();
+      for (let x = b.minx - 10; x < b.maxx + 10; x += 8) {
+        const yy = y + Math.sin((x + y) * 0.12) * 5;
+        x === b.minx - 10 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const sceneBrain = {
+    diveFocus: brainRegions.frontal.c,
+    diveTarget: 2,
+    draw() {
+      drawBackground();
+      // faint outer aura
+      ctx.save();
+      ctx.shadowColor = 'rgba(56,189,248,.5)'; ctx.shadowBlur = 60;
+      ctx.beginPath(); ctx.ellipse(560, 400, 360, 250, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(10,14,36,0.55)'; ctx.fill();
+      ctx.restore();
+
+      for (const k of regionOrder) {
+        const r = brainRegions[k];
+        const hot = state.hoverKey === k;
+        ctx.save();
+        ctx.beginPath();
+        r.poly.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+        ctx.closePath();
+        ctx.shadowColor = `rgba(${r.color},${hot ? 0.9 : 0.4})`;
+        ctx.shadowBlur = hot ? 34 : 14;
+        ctx.fillStyle = `rgba(${r.color},${hot ? 0.34 : 0.16})`;
+        ctx.fill();
+        ctx.lineWidth = hot ? 2.6 : 1.6;
+        ctx.strokeStyle = `rgba(${r.color},${hot ? 1 : 0.7})`;
+        ctx.stroke();
+        ctx.restore();
+        drawGyri(r.poly, r.color);
+      }
+      // cerebellum folia accent
+      ctx.save();
+      ctx.strokeStyle = 'rgba(20,184,166,0.5)'; ctx.lineWidth = 1.4;
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.moveTo(742, 470 + i * 22); ctx.lineTo(900, 476 + i * 22); ctx.stroke(); }
+      ctx.restore();
+
+      // region labels
+      for (const k of regionOrder) {
+        const r = brainRegions[k];
+        const hot = state.hoverKey === k;
+        label(r.c.x, r.c.y, r.name.replace(' Lobe', ''), hot ? `rgba(${r.color},1)` : 'rgba(226,232,240,.55)', hot ? 15 : 12);
+      }
+
+      if (state.scan) for (const k of regionOrder) scanHalo(brainRegions[k].c.x, brainRegions[k].c.y, 30, `rgba(${brainRegions[k].color},1)`);
+    },
+    hover(x, y) {
+      for (const k of regionOrder) if (pointInPoly(x, y, brainRegions[k].poly)) return { key: k, cursor: true, tip: { title: brainRegions[k].name, text: brainRegions[k].tip } };
+      return null;
+    },
+    click(x, y) {
+      for (const k of regionOrder) if (pointInPoly(x, y, brainRegions[k].poly)) {
+        state.focusInfo = { key: 'region', region: k };
+        return { dive: 2, focus: brainRegions[k].c };
+      }
+      return null;
+    },
+  };
+
+  /* ============================================================
+     LEVEL 2 — NEURAL NETWORK
+     ============================================================ */
+  const netNodes = [];
+  const netEdges = [];
+  const pulses = [];
+  (function buildNetwork() {
+    const rnd = mulberry(1337);
+    for (let i = 0; i < 16; i++) netNodes.push({ x: 120 + rnd() * 960, y: 120 + rnd() * 560, r: 5 + rnd() * 5, bg: true });
+    for (let i = 0; i < 22; i++) {
+      const a = (rnd() * netNodes.length) | 0, b = (rnd() * netNodes.length) | 0;
+      if (a !== b) netEdges.push({ a, b });
+    }
+    for (let i = 0; i < 26; i++) pulses.push({ e: (rnd() * netEdges.length) | 0, t: rnd(), sp: 0.15 + rnd() * 0.35 });
+  })();
+  function mulberry(seed) { return function () { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+  // hero neuron geometry
+  const hero = {
+    soma: { x: 545, y: 420, r: 46 },
+    dendrites: [
+      [[545,378],[500,320],[452,268]], [[545,382],[560,300],[540,238]],
+      [[520,400],[452,372],[392,352]], [[572,398],[624,346],[664,300]],
+      [[540,392],[498,340],[440,318]],
+    ],
+    axonPath: [[591,420],[690,430],[800,432],[892,436]],
+    terminal: { x: 905, y: 436, r: 20 },
+  };
+  const heroParts = {
+    dendrites: { name: 'Dendrites', color: '167,139,250', tip: 'The antennae. They catch incoming signals from thousands of other neurons.',
+      fact: 'One neuron can sprout tens of thousands of dendritic inputs — a listening array.' },
+    soma: { name: 'Soma (cell body)', color: '124,58,237', tip: 'The decision desk. It sums every signal and decides: fire, or stay quiet?',
+      fact: 'If the summed signal crosses ~ −55 mV threshold, the neuron fires — all or nothing.' },
+    axon: { name: 'Axon', color: '56,189,248', tip: 'The cable. Think of it as insulated wire carrying the electrical spike outward.',
+      fact: 'The longest human axon runs from spine to big toe — about 1 metre of single cell.' },
+    terminal: { name: 'Axon Terminal', color: '34,211,238', tip: 'The sender. Where the electrical spike becomes a chemical message. Dive in →',
+      fact: 'The spike arrives here and triggers a burst of chemical messengers into the gap.' },
+  };
+  function nodePos(i) { return netNodes[i]; }
+
+  const sceneNetwork = {
+    diveFocus: hero.terminal,
+    diveTarget: 3,
+    draw() {
+      drawBackground();
+      // background web
+      ctx.save();
+      ctx.lineWidth = 1;
+      for (const e of netEdges) {
+        const A = nodePos(e.a), B = nodePos(e.b);
+        ctx.strokeStyle = 'rgba(56,189,248,0.10)';
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+      }
+      for (const n of netNodes) glowCircle(n.x, n.y, n.r * 0.5, 'rgba(167,139,250,0.5)', 10);
+      // traveling pulses
+      for (const p of pulses) {
+        const e = netEdges[p.e]; if (!e) continue;
+        if (!reduceMotion) { p.t += p.sp / 60; if (p.t > 1) p.t -= 1; }
+        const A = nodePos(e.a), B = nodePos(e.b);
+        const x = lerp(A.x, B.x, p.t), y = lerp(A.y, B.y, p.t);
+        glowCircle(x, y, 2.6, 'rgba(34,211,238,0.95)', 12);
+      }
+      ctx.restore();
+
+      // hero neuron ---------------------------------------------------------
+      const hov = state.hoverKey;
+      // dendrites
+      for (const d of hero.dendrites) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(167,139,250,${hov === 'dendrites' ? 1 : 0.85})`;
+        ctx.lineWidth = hov === 'dendrites' ? 4 : 3;
+        ctx.shadowColor = 'rgba(167,139,250,.7)'; ctx.shadowBlur = hov === 'dendrites' ? 18 : 6;
+        ctx.beginPath(); ctx.moveTo(d[0][0], d[0][1]);
+        ctx.quadraticCurveTo(d[1][0], d[1][1], d[2][0], d[2][1]); ctx.stroke();
+        ctx.restore();
+      }
+      // axon + myelin
+      ctx.save();
+      ctx.strokeStyle = `rgba(56,189,248,${hov === 'axon' ? 1 : 0.9})`;
+      ctx.lineWidth = hov === 'axon' ? 9 : 7;
+      ctx.shadowColor = 'rgba(56,189,248,.7)'; ctx.shadowBlur = hov === 'axon' ? 20 : 8;
+      ctx.beginPath(); ctx.moveTo(hero.axonPath[0][0], hero.axonPath[0][1]);
+      for (let i = 1; i < hero.axonPath.length; i++) ctx.lineTo(hero.axonPath[i][0], hero.axonPath[i][1]);
+      ctx.stroke();
+      ctx.restore();
+      for (let i = 0; i < 3; i++) { const mx = 650 + i * 82; glowCircle(mx, 432, 0, 'transparent'); ctx.save(); ctx.beginPath(); ctx.ellipse(mx, 432, 20, 13, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(253,230,138,0.9)'; ctx.shadowColor = 'rgba(253,230,138,.6)'; ctx.shadowBlur = 10; ctx.fill(); ctx.restore(); }
+      // action-potential spark racing down the hero axon
+      if (!reduceMotion) {
+        const t = (now / 900) % 1;
+        const seg = hero.axonPath;
+        const total = seg.length - 1;
+        const fi = t * total; const idx = Math.min(total - 1, fi | 0); const ft = fi - idx;
+        const sx = lerp(seg[idx][0], seg[idx + 1][0], ft), sy = lerp(seg[idx][1], seg[idx + 1][1], ft);
+        glowCircle(sx, sy, 6, 'rgba(255,255,255,0.95)', 22);
+      }
+      // soma
+      const so = hero.soma;
+      ctx.save();
+      const g = ctx.createRadialGradient(so.x - 12, so.y - 12, 6, so.x, so.y, so.r);
+      g.addColorStop(0, '#ddd6fe'); g.addColorStop(1, '#6d28d9');
+      ctx.shadowColor = 'rgba(124,58,237,.8)'; ctx.shadowBlur = hov === 'soma' ? 34 : 18;
+      ctx.beginPath(); ctx.arc(so.x, so.y, so.r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+      ctx.restore();
+      glowCircle(so.x, so.y, 15, 'rgba(76,29,149,0.8)', 0);
+      // terminal bouton (dive hotspot)
+      const term = hero.terminal;
+      const pulse = 1 + Math.sin(now / 300) * 0.12;
+      glowCircle(term.x, term.y, term.r * pulse, 'rgba(34,211,238,0.95)', 26);
+      ring(term.x, term.y, term.r * pulse + 6, 'rgba(34,211,238,0.6)', 2);
+
+      // labels
+      label(468, 250, 'DENDRITES', hov === 'dendrites' ? 'rgba(167,139,250,1)' : 'rgba(167,139,250,.6)', 12);
+      label(so.x, so.y + so.r + 20, 'SOMA', hov === 'soma' ? 'rgba(196,181,253,1)' : 'rgba(196,181,253,.65)', 12);
+      label(730, 400, 'AXON', hov === 'axon' ? 'rgba(56,189,248,1)' : 'rgba(56,189,248,.6)', 12);
+      label(term.x, term.y + 40, 'TERMINAL', 'rgba(34,211,238,.95)', 12);
+
+      if (state.scan) {
+        scanHalo(so.x, so.y, so.r, 'rgba(124,58,237,1)');
+        scanHalo(468, 300, 40, 'rgba(167,139,250,1)');
+        scanHalo(730, 432, 40, 'rgba(56,189,248,1)');
+        scanHalo(term.x, term.y, term.r + 6, 'rgba(34,211,238,1)');
+      }
+    },
+    hover(x, y) {
+      if (dist2(x, y, hero.terminal.x, hero.terminal.y) < 34 * 34) return { key: 'terminal', cursor: true, tip: { title: heroParts.terminal.name, text: heroParts.terminal.tip } };
+      if (dist2(x, y, hero.soma.x, hero.soma.y) < (hero.soma.r + 10) ** 2) return { key: 'soma', cursor: true, tip: { title: heroParts.soma.name, text: heroParts.soma.tip } };
+      // axon corridor
+      if (x > 600 && x < 895 && Math.abs(y - 432) < 26) return { key: 'axon', cursor: true, tip: { title: heroParts.axon.name, text: heroParts.axon.tip } };
+      if (x > 380 && x < 620 && y > 230 && y < 400) return { key: 'dendrites', cursor: true, tip: { title: heroParts.dendrites.name, text: heroParts.dendrites.tip } };
+      return null;
+    },
+    click(x, y) {
+      const h = this.hover(x, y);
+      if (!h) return null;
+      if (h.key === 'terminal') { state.focusInfo = null; return { dive: 3, focus: hero.terminal }; }
+      state.focusInfo = { key: 'part', part: h.key };
+      refreshHUD();
+      return { handled: true };
+    },
+  };
+
+  /* ============================================================
+     LEVEL 3 — SYNAPSE
+     ============================================================ */
+  const vesicles = Array.from({ length: 7 }, (_, i) => ({
+    x: 420 + (i % 4) * 60 + Math.random() * 20,
+    y: 210 + ((i / 4) | 0) * 55 + Math.random() * 20,
+    r: 15 + Math.random() * 5, phase: Math.random() * Math.PI * 2, released: false, t: Math.random(),
+  }));
+  const nts = []; // neurotransmitter dots in cleft
+  const receptors = [420, 500, 580, 660, 740].map(x => ({ x, y: 500, bound: 0 }));
+  const PRE_MEM_Y = 372, POST_MEM_Y = 500, CLEFT_MID = 436;
+
+  function spawnNT(x) { nts.push({ x: x + (Math.random() - 0.5) * 20, y: PRE_MEM_Y + 6, vx: (Math.random() - 0.5) * 0.4, vy: 0.6 + Math.random() * 0.5, life: 0 }); }
+
+  const sceneSynapse = {
+    diveFocus: { x: 580, y: CLEFT_MID },
+    diveTarget: 4,
+    draw() {
+      drawBackground();
+      // presynaptic terminal (top bulb)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(300, 120);
+      ctx.bezierCurveTo(360, 90, 820, 90, 880, 130);
+      ctx.bezierCurveTo(900, 220, 880, 330, 800, PRE_MEM_Y);
+      ctx.lineTo(400, PRE_MEM_Y);
+      ctx.bezierCurveTo(320, 330, 290, 210, 300, 120);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(124,58,237,0.16)';
+      ctx.shadowColor = 'rgba(124,58,237,.5)'; ctx.shadowBlur = 30;
+      ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(167,139,250,0.8)'; ctx.stroke();
+      ctx.restore();
+      label(590, 150, 'PRESYNAPTIC  TERMINAL', 'rgba(167,139,250,.75)', 13);
+
+      // vesicles
+      for (const v of vesicles) {
+        if (!reduceMotion && !v.released) { v.t += 0.0035; }
+        // migrate toward membrane
+        let vy = v.y;
+        if (v.t > 0.7) vy = lerp(v.y, PRE_MEM_Y - v.r, (v.t - 0.7) / 0.3);
+        if (v.t >= 1) { // fuse + release
+          for (let k = 0; k < 3; k++) spawnNT(v.x);
+          v.t = 0; v.y = 200 + Math.random() * 120; v.x = 400 + Math.random() * 360;
+        }
+        const bob = Math.sin(now / 500 + v.phase) * 3;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(v.x, vy + bob, v.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(56,189,248,0.14)';
+        ctx.strokeStyle = 'rgba(56,189,248,0.85)'; ctx.lineWidth = 2;
+        ctx.shadowColor = 'rgba(56,189,248,.6)'; ctx.shadowBlur = 12;
+        ctx.fill(); ctx.stroke();
+        // packed transmitter dots
+        for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2; glowCircle(v.x + Math.cos(a) * v.r * 0.5, vy + bob + Math.sin(a) * v.r * 0.5, 2, 'rgba(34,211,238,0.9)', 6); }
+        ctx.restore();
+      }
+
+      // membranes
+      drawMembrane(PRE_MEM_Y, 'rgba(167,139,250,0.9)', true);
+      drawMembrane(POST_MEM_Y, 'rgba(56,189,248,0.9)', false);
+
+      // postsynaptic spine (bottom)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(360, POST_MEM_Y);
+      ctx.lineTo(800, POST_MEM_Y);
+      ctx.bezierCurveTo(860, 620, 820, 720, 580, 720);
+      ctx.bezierCurveTo(360, 720, 300, 620, 360, POST_MEM_Y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(56,189,248,0.12)';
+      ctx.shadowColor = 'rgba(56,189,248,.4)'; ctx.shadowBlur = 26;
+      ctx.fill();
+      ctx.restore();
+      label(580, 660, 'POSTSYNAPTIC  DENDRITIC  SPINE', 'rgba(56,189,248,.75)', 13);
+
+      // receptors on postsynaptic membrane
+      for (const r of receptors) {
+        r.bound = Math.max(0, r.bound - 0.01);
+        const open = r.bound > 0.2;
+        ctx.save();
+        ctx.translate(r.x, POST_MEM_Y);
+        ctx.fillStyle = open ? 'rgba(34,211,238,0.95)' : 'rgba(148,163,184,0.85)';
+        ctx.shadowColor = open ? 'rgba(34,211,238,.8)' : 'transparent'; ctx.shadowBlur = open ? 16 : 0;
+        // two-pronged receptor
+        ctx.beginPath();
+        ctx.moveTo(-12, 6); ctx.lineTo(-6, -14); ctx.lineTo(-1, 6); ctx.closePath();
+        ctx.moveTo(12, 6); ctx.lineTo(6, -14); ctx.lineTo(1, 6); ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // neurotransmitters drifting across the cleft
+      for (let i = nts.length - 1; i >= 0; i--) {
+        const n = nts[i];
+        if (!reduceMotion) { n.x += n.vx; n.y += n.vy; n.life += 1; }
+        glowCircle(n.x, n.y, 3.4, 'rgba(34,211,238,0.95)', 10);
+        // dock to nearest receptor
+        if (n.y >= POST_MEM_Y - 6) {
+          let best = receptors[0];
+          for (const r of receptors) if (Math.abs(r.x - n.x) < Math.abs(best.x - n.x)) best = r;
+          best.bound = 1;
+          nts.splice(i, 1);
+        } else if (n.life > 400) nts.splice(i, 1);
+      }
+
+      // cleft label + dive hotspot
+      const pulse = 1 + Math.sin(now / 320) * 0.1;
+      ctx.save();
+      ctx.setLineDash([6, 8]);
+      ctx.strokeStyle = 'rgba(244,114,182,0.6)'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(410, PRE_MEM_Y + 6, 360, POST_MEM_Y - PRE_MEM_Y - 12);
+      ctx.restore();
+      label(580, CLEFT_MID, 'SYNAPTIC  CLEFT  ·  click to enter', 'rgba(244,114,182,.9)', 12);
+      ring(580, CLEFT_MID, 40 * pulse, 'rgba(244,114,182,0.5)', 2);
+
+      if (state.scan) {
+        scanHalo(vesicles[0].x, vesicles[0].y, 26, 'rgba(56,189,248,1)');
+        scanHalo(580, CLEFT_MID, 40, 'rgba(244,114,182,1)');
+        scanHalo(receptors[2].x, POST_MEM_Y, 24, 'rgba(34,211,238,1)');
+      }
+    },
+    hover(x, y) {
+      if (y > PRE_MEM_Y + 4 && y < POST_MEM_Y - 4 && x > 400 && x < 780) return { key: 'cleft', cursor: true, tip: { title: 'Synaptic Cleft', text: 'A ~20 nm gap. The message leaps it as a puff of chemicals. Click to go molecular →' } };
+      if (y < PRE_MEM_Y && x > 380 && x < 800) return { key: 'vesicle', cursor: true, tip: { title: 'Synaptic Vesicle', text: 'A bubble packed with neurotransmitter, waiting to dump its cargo into the gap.' } };
+      if (Math.abs(y - POST_MEM_Y) < 22 && x > 390 && x < 770) return { key: 'receptor', cursor: true, tip: { title: 'Receptor', text: 'A lock on the receiving cell. Only the right chemical key opens it.' } };
+      return null;
+    },
+    click(x, y) {
+      const h = this.hover(x, y);
+      if (!h) return null;
+      if (h.key === 'cleft') { state.focusInfo = null; return { dive: 4, focus: { x: 580, y: CLEFT_MID } }; }
+      state.focusInfo = { key: 'synpart', part: h.key };
+      refreshHUD();
+      return { handled: true };
+    },
+  };
+  function drawMembrane(y, color, top) {
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.9;
+    for (let x = 300; x < 880; x += 22) {
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 11, y, 6, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ============================================================
+     LEVEL 4 — MOLECULAR
+     ============================================================ */
+  const CHEMS = {
+    dopamine: { label: 'Dopamine', tag: 'Reward', color: '251,191,36', ion: 'Ca²⁺ / Na⁺', type: 'Metabotropic (slow relay)',
+      blurb: 'The <b>reward & motivation</b> molecule. It fires when you win, learn, or crave — the brain\'s "let\'s do that again" signal. Works through a slower second-messenger relay rather than punching a channel open directly.',
+      fact: 'Nearly every addictive drug hijacks this exact pathway.', shape: [[0,0],[16,-6],[30,4],[22,20],[4,16]] },
+    serotonin: { label: 'Serotonin', tag: 'Mood', color: '20,184,166', ion: 'K⁺ / Na⁺', type: 'Mostly metabotropic',
+      blurb: 'The <b>mood stabiliser</b>. Regulates happiness, sleep and appetite. Most antidepressants (SSRIs) work by leaving more of it lingering in the cleft.',
+      fact: 'About 90% of your serotonin is made in your gut, not your brain.', shape: [[0,0],[18,0],[26,-12],[12,-20],[-4,-10]] },
+    gaba: { label: 'GABA', tag: 'Calm', color: '129,140,248', ion: 'Cl⁻', type: 'Ionotropic — inhibitory',
+      blurb: 'The brain\'s <b>brake pedal</b> — the main <i>inhibitory</i> transmitter. It floods the cell with Cl⁻, making it <i>harder</i> to fire. Quiets overexcited circuits and dials down anxiety.',
+      fact: 'Alcohol and anti-anxiety meds both amplify GABA — hence the calm.', shape: [[0,0],[14,-8],[24,4],[12,14],[-2,8]] },
+    glutamate: { label: 'Glutamate', tag: 'Go!', color: '56,189,248', ion: 'Na⁺ / Ca²⁺', type: 'Ionotropic — excitatory',
+      blurb: 'The brain\'s <b>accelerator</b> — the main <i>excitatory</i> transmitter. Slams open channels so Na⁺/Ca²⁺ rush in and the neuron fires. Powers learning & memory (long-term potentiation).',
+      fact: 'It\'s the most abundant neurotransmitter — used by ~half your neurons.', shape: [[0,0],[20,-4],[28,10],[14,20],[-2,10]] },
+    adrenaline: { label: 'Adrenaline', tag: 'Fight!', color: '244,114,182', ion: 'Ca²⁺ / Na⁺', type: 'Metabotropic — alerting',
+      blurb: 'The <b>alarm bell</b> (a.k.a. epinephrine). Under threat it sharpens focus, speeds the heart and primes muscles — the fight-or-flight surge in molecular form.',
+      fact: 'It can hit your bloodstream in under a second when you\'re startled.', shape: [[0,0],[12,-10],[26,-6],[26,10],[10,14]] },
+  };
+  const molecules = [];
+  const ionParticles = [];
+  const MEM_Y = 440;
+  const RECEPTOR = { x: 600, y: MEM_Y };
+  let channelOpen = 0; // 0..1
+
+  function initLevel4() {
+    molecules.length = 0; ionParticles.length = 0; channelOpen = 0;
+    for (let i = 0; i < 5; i++) molecules.push(newMolecule());
+  }
+  function newMolecule() {
+    return { x: 120 + Math.random() * 960, y: 60 + Math.random() * 240, vx: (Math.random() - 0.5) * 0.5, vy: 0.3 + Math.random() * 0.5, rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.02, bound: false };
+  }
+  function drawMolecule(x, y, rot, colorRGB, scale) {
+    const chem = CHEMS[state.chem];
+    ctx.save();
+    ctx.translate(x, y); ctx.rotate(rot); ctx.scale(scale || 1, scale || 1);
+    // bonds
+    ctx.strokeStyle = `rgba(${colorRGB},0.5)`; ctx.lineWidth = 3;
+    ctx.beginPath();
+    chem.shape.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.closePath(); ctx.stroke();
+    // atoms
+    for (const p of chem.shape) glowCircle(p[0], p[1], 6, `rgba(${colorRGB},0.95)`, 12);
+    ctx.restore();
+  }
+
+  const sceneMolecule = {
+    diveFocus: RECEPTOR,
+    diveTarget: null,
+    draw() {
+      drawBackground();
+      const chem = CHEMS[state.chem];
+
+      // extracellular / intracellular wash
+      ctx.save();
+      ctx.fillStyle = 'rgba(56,189,248,0.04)'; ctx.fillRect(0, 0, STAGE_W, MEM_Y);
+      ctx.fillStyle = 'rgba(124,58,237,0.05)'; ctx.fillRect(0, MEM_Y, STAGE_W, STAGE_H - MEM_Y);
+      ctx.restore();
+      label(120, 60, 'OUTSIDE  THE  CELL', 'rgba(148,163,184,.5)', 12, 'left');
+      label(120, STAGE_H - 40, 'INSIDE  THE  CELL', 'rgba(148,163,184,.5)', 12, 'left');
+
+      // membrane bilayer
+      drawBilayer(MEM_Y);
+
+      // receptor / channel
+      const open = channelOpen;
+      ctx.save();
+      ctx.translate(RECEPTOR.x, RECEPTOR.y);
+      const gap = 10 + open * 26;
+      const col = `rgba(${chem.color},${0.5 + open * 0.5})`;
+      ctx.shadowColor = `rgba(${chem.color},${open})`; ctx.shadowBlur = open * 30;
+      // two channel walls
+      for (const s of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(s * gap, -46);
+        ctx.lineTo(s * (gap + 30), -50);
+        ctx.lineTo(s * (gap + 30), 50);
+        ctx.lineTo(s * gap, 46);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(30,41,59,0.95)';
+        ctx.fill();
+        ctx.lineWidth = 3; ctx.strokeStyle = col; ctx.stroke();
+      }
+      // binding pocket glow
+      glowCircle(0, -44, 8, open ? `rgba(${chem.color},1)` : 'rgba(148,163,184,0.6)', open ? 20 : 6);
+      ctx.restore();
+      label(RECEPTOR.x, MEM_Y + 74, open ? 'CHANNEL  OPEN' : 'RECEPTOR  ·  awaiting key', open ? `rgba(${chem.color},1)` : 'rgba(148,163,184,.7)', 13);
+
+      // molecules floating & seeking the receptor
+      let anyBound = false;
+      for (const m of molecules) {
+        if (!reduceMotion && !m.bound) {
+          m.x += m.vx; m.y += m.vy; m.rot += m.vr;
+          if (m.x < 40 || m.x > STAGE_W - 40) m.vx *= -1;
+          // gentle pull toward receptor mouth once low enough
+          if (m.y > 220) { m.vx += (RECEPTOR.x - m.x) * 0.0004; m.vy += 0.01; }
+          if (m.y >= MEM_Y - 52 && Math.abs(m.x - RECEPTOR.x) < 40) { m.bound = true; m.x = RECEPTOR.x; m.y = MEM_Y - 44; }
+          if (m.y > STAGE_H + 40) Object.assign(m, newMolecule());
+        }
+        if (m.bound) anyBound = true;
+        drawMolecule(m.x, m.y, m.rot, chem.color, m.bound ? 1.1 : 1);
+      }
+
+      // channel opens when bound
+      const target = anyBound ? 1 : 0;
+      channelOpen += (target - channelOpen) * 0.06;
+
+      // ion flood when open
+      if (channelOpen > 0.4) {
+        if (!reduceMotion && Math.random() < 0.4) ionParticles.push({ x: RECEPTOR.x + (Math.random() - 0.5) * (10 + channelOpen * 20), y: MEM_Y - 60, vy: 1.4 + Math.random() });
+      }
+      for (let i = ionParticles.length - 1; i >= 0; i--) {
+        const p = ionParticles[i];
+        if (!reduceMotion) p.y += p.vy;
+        glowCircle(p.x, p.y, 5, `rgba(${chem.color},0.9)`, 14);
+        label(p.x, p.y, chem.ion.split(' ')[0], 'rgba(255,255,255,.85)', 8);
+        if (p.y > STAGE_H) ionParticles.splice(i, 1);
+      }
+
+      if (anyBound && channelOpen > 0.6) {
+        label(RECEPTOR.x, MEM_Y + 110, chem.ion + '  flooding in', `rgba(${chem.color},.9)`, 12);
+      }
+
+      if (state.scan) {
+        scanHalo(RECEPTOR.x, MEM_Y - 44, 22, `rgba(${chem.color},1)`);
+        if (molecules[0]) scanHalo(molecules[0].x, molecules[0].y, 30, `rgba(${chem.color},1)`);
+      }
+    },
+    hover(x, y) {
+      if (dist2(x, y, RECEPTOR.x, RECEPTOR.y) < 70 * 70) return { key: 'receptor', cursor: false, tip: { title: 'Ligand-gated Receptor', text: 'The chemical binds here like a key in a lock — and the ion gate swings open.' } };
+      for (const m of molecules) if (dist2(x, y, m.x, m.y) < 30 * 30) return { key: 'molecule', cursor: false, tip: { title: CHEMS[state.chem].label, text: CHEMS[state.chem].tag } };
+      return null;
+    },
+    click() { return null; },
+  };
+  function drawBilayer(y) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(148,163,184,0.85)';
+    for (let x = 20; x < STAGE_W; x += 26) {
+      // phospholipid heads (two rows) + tails
+      ctx.beginPath(); ctx.arc(x, y - 16, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y + 16, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(148,163,184,0.4)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x, y - 2); ctx.moveTo(x, y + 12); ctx.lineTo(x, y + 2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /* ============================================================
+     SCENE REGISTRY + TRANSITIONS
+     ============================================================ */
+  const scenes = { 1: sceneBrain, 2: sceneNetwork, 3: sceneSynapse, 4: sceneMolecule };
+
+  function drawScene(scene, z, alpha, focus) {
+    ctx.save();
+    ctx.translate(fit.ox, fit.oy);
+    ctx.scale(fit.s, fit.s);
+    ctx.translate(focus.x, focus.y);
+    ctx.scale(z, z);
+    ctx.translate(-focus.x, -focus.y);
+    ctx.globalAlpha = alpha;
+    // clip to stage so scaled scenes don't bleed
+    scene.draw(now);
+    ctx.restore();
+  }
+
+  const ZMAX = 7;
+  function startTransition(toLevel, focus, dir) {
+    if (state.transition) return;
+    state.transition = { from: state.level, to: toLevel, dir, start: now, dur: reduceMotion ? 220 : 900, focus: focus || CENTER };
+    state.hoverKey = null; hideTip();
+    dismissHint();
+  }
+
+  function updateTransition() {
+    const tr = state.transition;
+    if (!tr) return false;
+    const p = clamp((now - tr.start) / tr.dur, 0, 1);
+    const e = easeInOut(p);
+    const from = scenes[tr.from], to = scenes[tr.to];
+    if (tr.dir === 'in') {
+      drawScene(from, lerp(1, ZMAX, e), 1 - clamp(e / 0.7, 0, 1), tr.focus);
+      drawScene(to, lerp(0.25, 1, e), clamp((e - 0.2) / 0.7, 0, 1), CENTER);
+    } else {
+      drawScene(from, lerp(1, 0.25, e), 1 - clamp(e / 0.7, 0, 1), CENTER);
+      drawScene(to, lerp(ZMAX, 1, e), clamp((e - 0.2) / 0.7, 0, 1), CENTER);
+    }
+    if (p >= 1) {
+      state.level = tr.to;
+      state.transition = null;
+      if (state.level === 4) initLevel4();
+      refreshHUD(); refreshRail();
+    }
+    return true;
+  }
+
+  /* ============================================================
+     RENDER LOOP
+     ============================================================ */
+  let hidden = false;
+  document.addEventListener('visibilitychange', () => { hidden = document.hidden; if (!hidden) requestAnimationFrame(loop); });
+
+  function loop(ts) {
+    now = ts;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cw, ch);
+    if (!updateTransition()) {
+      drawScene(scenes[state.level], 1, 1, CENTER);
+    }
+    if (!hidden) requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  /* ============================================================
+     POINTER INTERACTION
+     ============================================================ */
+  let lastCursor = 'default';
+  function onMove(clientX, clientY) {
+    if (state.transition) return;
+    const L = toLogical(clientX, clientY);
+    const scene = scenes[state.level];
+    const h = scene.hover ? scene.hover(L.x, L.y) : null;
+    state.hoverKey = h ? h.key : null;
+    if (h && h.tip) showTip(clientX, clientY, h.tip.title, h.tip.text);
+    else hideTip();
+    const wantCursor = h && h.cursor !== false ? 'pointer' : 'default';
+    if (wantCursor !== lastCursor) { canvas.style.cursor = wantCursor; lastCursor = wantCursor; }
+  }
+  function onClick(clientX, clientY) {
+    if (state.transition) return;
+    const L = toLogical(clientX, clientY);
+    const scene = scenes[state.level];
+    const res = scene.click ? scene.click(L.x, L.y) : null;
+    if (res && res.dive) { state.interacted = true; startTransition(res.dive, res.focus, 'in'); }
+  }
+
+  canvas.addEventListener('pointermove', e => onMove(e.clientX, e.clientY));
+  canvas.addEventListener('pointerdown', e => { e.preventDefault(); onClick(e.clientX, e.clientY); });
+  canvas.addEventListener('pointerleave', () => { state.hoverKey = null; hideTip(); });
+
+  /* ============================================================
+     HUD + BREADCRUMB + CONTROLS
+     ============================================================ */
+  const LEVELS = {
+    1: { title: 'The Human Brain', scale: '≈ 15 cm', descendLabel: 'Enter the cortex',
+      body: `<p class="text-slate-300 leading-relaxed">You're looking at three pounds of tissue that runs your entire existence — thought, movement, memory, you. Each glowing region is a specialist. <b class="text-white">Tap one</b> to plunge into its wiring.</p>`,
+      fact: 'The brain uses ~20% of your body\'s energy while being just 2% of its weight.' },
+    2: { title: 'The Neural Network', scale: '≈ 1 mm', descendLabel: 'Follow the axon',
+      body: `<p class="text-slate-300 leading-relaxed">Zoom in and the tissue dissolves into a living circuit board — <b class="text-white">86 billion neurons</b> trading electrical whispers. Watch the sparks travel. Hover the highlighted cell to name its parts, then ride the axon to its tip.</p>`,
+      fact: 'Signals race down myelinated axons at up to 120 m/s — highway speed, inside you.' },
+    3: { title: 'The Synapse', scale: '≈ 20 nm', descendLabel: 'Enter the cleft',
+      body: `<p class="text-slate-300 leading-relaxed">Where two neurons almost touch. The electrical spike can't jump the gap — so it converts into <b class="text-white">chemistry</b>. Bubbles (vesicles) fuse and spray messenger molecules across a gap 3,000× thinner than a hair.</p>`,
+      fact: 'This hand-off takes under a millisecond, billions of times per second, all over your brain.' },
+    4: { title: 'Molecular Scale', scale: '≈ 1 nm', descendLabel: '',
+      body: `<p class="text-slate-300 leading-relaxed">The bottom of the well: single molecules. A neurotransmitter drifts in and <b class="text-white">binds a receptor like a key in a lock</b>, snapping an ion channel open. Load different chemicals below and watch how each one changes the message.</p>`,
+      fact: 'Your every thought and feeling is, at this scale, just molecules docking and ions moving.' },
+  };
+
+  const partCopy = {
+    part: {
+      dendrites: heroParts.dendrites, soma: heroParts.soma, axon: heroParts.axon, terminal: heroParts.terminal,
+    },
+    synpart: {
+      vesicle: { name: 'Synaptic Vesicle', tip: 'A membrane bubble stuffed with neurotransmitter, parked and ready.', fact: 'A single vesicle holds a few thousand transmitter molecules.' },
+      receptor: { name: 'Receptor', tip: 'A protein lock on the receiving neuron — shape-matched to one chemical.', fact: 'The same transmitter can excite one cell and calm another, depending on the receptor.' },
+      cleft: { name: 'Synaptic Cleft', tip: 'The ~20 nm gap the message must cross as a chemical puff.', fact: 'Leftover transmitter is vacuumed back up or broken down in milliseconds.' },
+    },
+  };
+
+  const hudLevelTag = document.getElementById('hudLevelTag');
+  const hudScale = document.getElementById('hudScale');
+  const hudTitle = document.getElementById('hudTitle');
+  const hudBody = document.getElementById('hudBody');
+  const descendBtn = document.getElementById('descendBtn');
+  const descendLabelEl = document.getElementById('descendLabel');
+  const deepestNote = document.getElementById('deepestNote');
+  const chemDock = document.getElementById('chemDock');
+
+  function factBlock(text) {
+    return `<div class="mt-4 rounded-xl border-l-2 border-synapse/70 bg-synapse/[0.07] px-4 py-3">
+      <p class="font-mono text-[10px] uppercase tracking-widest text-synapse/80 mb-1">Fast fact</p>
+      <p class="text-sm text-slate-300 leading-snug">${text}</p></div>`;
+  }
+
+  function refreshHUD() {
+    const L = LEVELS[state.level];
+    hudLevelTag.textContent = `Level ${state.level} / 4`;
+    hudScale.textContent = L.scale;
+    hudTitle.textContent = L.title;
+
+    let bodyHTML = L.body + factBlock(L.fact);
+
+    // sub-part override
+    if (state.focusInfo) {
+      let info = null;
+      if (state.focusInfo.key === 'part') info = partCopy.part[state.focusInfo.part];
+      else if (state.focusInfo.key === 'synpart') info = partCopy.synpart[state.focusInfo.part];
+      else if (state.focusInfo.key === 'region') { const r = brainRegions[state.focusInfo.region]; info = { name: r.name, tip: r.tip, fact: r.fact }; }
+      if (info) {
+        bodyHTML = `<div class="rounded-xl bg-white/[0.04] px-4 py-3 mb-3">
+            <p class="font-mono text-[10px] uppercase tracking-widest text-dendrite mb-1">Selected</p>
+            <h3 class="font-display text-xl leading-tight mb-1">${info.name}</h3>
+            <p class="text-sm text-slate-300 leading-snug">${info.tip}</p>
+          </div>` + factBlock(info.fact) + `<p class="mt-3 text-xs text-slate-500">${L.body.replace(/<[^>]+>/g,'').slice(0,0)}</p>`;
+      }
+    }
+
+    hudBody.innerHTML = `<div class="fade-swap">${bodyHTML}</div>`;
+
+    // descend button vs deepest note vs chem dock
+    if (state.level === 4) {
+      descendBtn.classList.add('hidden');
+      deepestNote.classList.remove('hidden');
+      chemDock.classList.remove('hidden');
+    } else {
+      descendBtn.classList.remove('hidden');
+      deepestNote.classList.add('hidden');
+      chemDock.classList.add('hidden');
+      descendLabelEl.textContent = L.descendLabel;
+    }
+    refreshRail();
+  }
+
+  descendBtn.addEventListener('click', () => {
+    const scene = scenes[state.level];
+    if (scene.diveTarget) { state.interacted = true; state.focusInfo = null; startTransition(scene.diveTarget, scene.diveFocus, 'in'); }
+  });
+
+  // ---------- breadcrumb rail ----------
+  const RAIL = [
+    { lvl: 1, name: 'Brain', scale: '15 cm', color: '167,139,250' },
+    { lvl: 2, name: 'Network', scale: '1 mm', color: '56,189,248' },
+    { lvl: 3, name: 'Synapse', scale: '20 nm', color: '244,114,182' },
+    { lvl: 4, name: 'Molecule', scale: '1 nm', color: '20,184,166' },
+  ];
+  const railDesktop = document.getElementById('railDesktop');
+  const railMobileInner = document.querySelector('#railMobile > div');
+
+  function buildRail() {
+    railDesktop.innerHTML = `<div class="absolute left-[7px] top-3 bottom-3 w-[2px] rail-line rounded"></div>` +
+      RAIL.map(r => `
+      <button data-lvl="${r.lvl}" class="crumb group relative flex items-center gap-3 py-3 pl-0 pr-2 text-left">
+        <span class="crumb-dot w-4 h-4 rounded-full border-2" style="border-color:rgba(${r.color},.9);background:rgba(${r.color},.25)"></span>
+        <span class="crumb-label font-mono text-slate-400 text-xs leading-tight">
+          <span class="block text-[11px] tracking-wider uppercase">${r.name}</span>
+          <span class="block text-[10px] text-slate-500">${r.scale}</span>
+        </span>
+      </button>`).join('');
+    railMobileInner.innerHTML = RAIL.map(r => `
+      <button data-lvl="${r.lvl}" class="crumbm flex items-center gap-1.5 px-2.5 py-1 rounded-full">
+        <span class="w-2.5 h-2.5 rounded-full" style="background:rgba(${r.color},.9)"></span>
+        <span class="font-mono text-[10px] uppercase tracking-wider text-slate-400">${r.name}</span>
+      </button>`).join('');
+    railDesktop.querySelectorAll('.crumb').forEach(b => b.addEventListener('click', () => jumpTo(+b.dataset.lvl)));
+    railMobileInner.querySelectorAll('.crumbm').forEach(b => b.addEventListener('click', () => jumpTo(+b.dataset.lvl)));
+  }
+  function refreshRail() {
+    railDesktop.querySelectorAll('.crumb').forEach(b => {
+      const lvl = +b.dataset.lvl;
+      b.classList.toggle('active', lvl === state.level);
+      b.classList.toggle('done', lvl < state.level);
+    });
+    railMobileInner.querySelectorAll('.crumbm').forEach(b => {
+      const lvl = +b.dataset.lvl;
+      b.style.background = lvl === state.level ? 'rgba(56,189,248,.18)' : 'transparent';
+      b.querySelector('span:last-child').style.color = lvl === state.level ? '#e2e8f0' : '';
+    });
+    document.getElementById('upBtn').disabled = state.level === 1 && !state.transition;
+  }
+  function jumpTo(lvl) {
+    if (lvl === state.level || state.transition) return;
+    state.focusInfo = null;
+    startTransition(lvl, CENTER, lvl > state.level ? 'in' : 'out');
+  }
+
+  // up / out button
+  document.getElementById('upBtn').addEventListener('click', () => { if (state.level > 1) jumpTo(state.level - 1); });
+
+  // ---------- scan mode ----------
+  const scanBtn = document.getElementById('scanBtn');
+  scanBtn.addEventListener('click', () => {
+    state.scan = !state.scan;
+    document.body.classList.toggle('scan-active', state.scan);
+    dismissHint();
+  });
+
+  // ---------- chem toggles ----------
+  const chemBtns = document.getElementById('chemBtns');
+  function buildChem() {
+    chemBtns.innerHTML = Object.entries(CHEMS).map(([k, c]) => `
+      <button data-chem="${k}" aria-pressed="${k === state.chem}" class="chem-btn rounded-lg px-2 py-2 border text-center"
+        style="border-color:rgba(${c.color},${k === state.chem ? 1 : .3});background:rgba(${c.color},${k === state.chem ? .18 : .06})">
+        <span class="block font-mono text-[11px] font-semibold" style="color:rgba(${c.color},1)">${c.label}</span>
+        <span class="block text-[9px] uppercase tracking-wider text-slate-400">${c.tag}</span>
+      </button>`).join('');
+    chemBtns.querySelectorAll('.chem-btn').forEach(b => b.addEventListener('click', () => {
+      state.chem = b.dataset.chem;
+      molecules.forEach(m => Object.assign(m, newMolecule()));
+      channelOpen = 0; ionParticles.length = 0;
+      buildChem(); renderChemInfo();
+    }));
+  }
+  function renderChemInfo() {
+    if (state.level !== 4) return;
+    const c = CHEMS[state.chem];
+    hudBody.innerHTML = `<div class="fade-swap">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="w-3 h-3 rounded-full" style="background:rgba(${c.color},1);box-shadow:0 0 12px rgba(${c.color},.9)"></span>
+        <h3 class="font-display text-2xl leading-none">${c.label}</h3>
+        <span class="font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded" style="color:rgba(${c.color},1);background:rgba(${c.color},.12)">${c.tag}</span>
+      </div>
+      <p class="text-sm text-slate-300 leading-relaxed">${c.blurb}</p>
+      <div class="grid grid-cols-2 gap-2 mt-3">
+        <div class="rounded-lg bg-white/[0.04] px-3 py-2">
+          <p class="font-mono text-[9px] uppercase tracking-widest text-slate-500">Ion moved</p>
+          <p class="font-mono text-sm" style="color:rgba(${c.color},1)">${c.ion}</p>
+        </div>
+        <div class="rounded-lg bg-white/[0.04] px-3 py-2">
+          <p class="font-mono text-[9px] uppercase tracking-widest text-slate-500">Mechanism</p>
+          <p class="text-xs text-slate-300 leading-tight mt-0.5">${c.type}</p>
+        </div>
+      </div>
+      ${factBlock(c.fact)}
+    </div>`;
+  }
+  // hook chem rendering into HUD refresh when at level 4
+  const _refreshHUD = refreshHUD;
+  refreshHUD = function () { _refreshHUD(); if (state.level === 4) { renderChemInfo(); } };
+
+  /* ============================================================
+     TOOLTIP
+     ============================================================ */
+  const tip = document.getElementById('tip');
+  const tipTitle = document.getElementById('tipTitle');
+  const tipText = document.getElementById('tipText');
+  let tipRAF = null;
+  function showTip(x, y, title, text) {
+    tipTitle.textContent = title; tipText.textContent = text;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    tip.classList.add('show');
+  }
+  function hideTip() { tip.classList.remove('show'); }
+
+  /* ============================================================
+     HINT + KEYBOARD
+     ============================================================ */
+  const hintEl = document.getElementById('hint');
+  let hintTimer = setTimeout(dismissHint, 6000);
+  function dismissHint() { if (!hintEl) return; hintEl.style.opacity = '0'; setTimeout(() => hintEl.remove && hintEl.remove(), 500); clearTimeout(hintTimer); }
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape' || e.key === 'Backspace') { if (state.level > 1) jumpTo(state.level - 1); }
+    else if (e.key === 's' || e.key === 'S') scanBtn.click();
+    else if (e.key === 'Enter' || e.key === ' ') { if (state.level < 4 && !state.transition) descendBtn.click(); }
+    else if (['1','2','3','4'].includes(e.key)) jumpTo(+e.key);
+  });
+
+  /* ============================================================
+     BOOT
+     ============================================================ */
+  buildRail(); buildChem(); refreshHUD(); refreshRail();
+  if (window.lucide) try { lucide.createIcons(); } catch (e) {}
+})();
+</script>
+</body>
+</html>

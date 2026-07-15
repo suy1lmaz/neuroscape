@@ -129,6 +129,21 @@ body {
   outline: none;
 }
 
+.nav-links a.nav-sim {
+  color: var(--impulse);
+  padding: 0.35rem 0.85rem;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  border-radius: 999px;
+  transition: background 0.25s, border-color 0.25s, color 0.25s;
+}
+
+.nav-links a.nav-sim:hover,
+.nav-links a.nav-sim:focus-visible {
+  background: rgba(34, 211, 238, 0.12);
+  border-color: var(--impulse);
+  color: var(--impulse);
+}
+
 .nav-toggle {
   display: none;
   flex-direction: column;
@@ -1062,6 +1077,160 @@ body {
 
 .therapy-timeline strong {
   color: var(--glial);
+}
+
+/* ============================================
+   Featured Simulation CTA
+   ============================================ */
+.sim-cta {
+  position: relative;
+  z-index: 1;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 3.5rem) clamp(1.5rem, 4vw, 3rem);
+}
+
+.sim-cta-inner {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+  padding: clamp(1.75rem, 4vw, 3rem);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  background:
+    radial-gradient(120% 140% at 85% 20%, rgba(124, 58, 237, 0.18), transparent 60%),
+    radial-gradient(120% 140% at 10% 90%, rgba(34, 211, 238, 0.12), transparent 55%),
+    var(--surface);
+  box-shadow: 0 0 60px rgba(56, 189, 248, 0.08);
+  overflow: hidden;
+}
+
+.sim-cta-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--impulse);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.sim-cta-copy h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 3.5vw, 2.6rem);
+  line-height: 1.15;
+  margin-bottom: 1rem;
+}
+
+.sim-cta-copy p {
+  color: var(--text-muted);
+  max-width: 46ch;
+  line-height: 1.7;
+  margin-bottom: 1.75rem;
+}
+
+.sim-cta-btn {
+  display: inline-block;
+  padding: 0.9rem 2rem;
+  background: linear-gradient(120deg, rgba(56, 189, 248, 0.16), rgba(167, 139, 250, 0.16));
+  border: 1px solid var(--synapse);
+  color: var(--synapse);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  transition: background 0.3s, color 0.3s, box-shadow 0.3s;
+}
+
+.sim-cta-btn:hover,
+.sim-cta-btn:focus-visible {
+  background: var(--synapse);
+  color: var(--void);
+  box-shadow: 0 0 28px rgba(56, 189, 248, 0.35);
+  outline: none;
+}
+
+.sim-cta-scales {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.sim-cta-scales li {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sim-cta-scales li span {
+  font-size: 1.05rem;
+  color: var(--synapse);
+  letter-spacing: 0;
+  margin-bottom: 0.15rem;
+}
+
+.sim-cta-visual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-decoration: none;
+}
+
+.sim-cta-visual svg {
+  width: min(240px, 80%);
+  height: auto;
+  filter: drop-shadow(0 0 30px rgba(124, 58, 237, 0.35));
+}
+
+.sim-cta-visual-label {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--impulse);
+  transition: transform 0.25s var(--ease-out), color 0.25s;
+}
+
+.sim-cta-visual:hover .sim-cta-visual-label,
+.sim-cta-visual:focus-visible .sim-cta-visual-label {
+  transform: translateY(-2px);
+  color: #67e8f9;
+}
+
+.sim-ring { transform-origin: 120px 120px; }
+.sim-ring-1 { animation: simSpin 26s linear infinite; }
+.sim-ring-2 { animation: simSpin 18s linear infinite reverse; }
+.sim-ring-3 { animation: simSpin 12s linear infinite; }
+.sim-core-pulse { animation: simPulse 2.6s ease-in-out infinite; transform-origin: 120px 120px; }
+
+@keyframes simSpin { to { transform: rotate(360deg); } }
+@keyframes simPulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 0; transform: scale(1.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sim-ring, .sim-core-pulse { animation: none; }
+}
+
+@media (max-width: 860px) {
+  .sim-cta-inner { grid-template-columns: 1fr; }
+  .sim-cta-visual { order: -1; }
+  .sim-cta-visual svg { width: 160px; }
 }
 
 /* Footer */
